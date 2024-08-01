@@ -3,18 +3,20 @@ from random import choice
 from timer import Timer
 
 class Tooth(pygame.sprite.Sprite):
-	def __init__(self, pos, frames, groups, collision_sprites):
+	def __init__(self, pos, frames, groups, collision_sprites, player):
 		super().__init__(groups)
 		self.frames, self.frame_index = frames, 0
 		self.image = self.frames[self.frame_index]
 		self.rect = self.image.get_frect(topleft = pos)
 		self.z = Z_LAYERS['main']
+		self.player = player
 
 		self.direction = choice((-1,1))
 		self.collision_rects = [sprite.rect for sprite in collision_sprites]
 		self.speed = 200
 
 		self.hit_timer = Timer(250)
+		self.alert_distance = 300
 
 	def reverse(self):
 		if not self.hit_timer.active:
@@ -29,10 +31,14 @@ class Tooth(pygame.sprite.Sprite):
 		self.image = self.frames[int(self.frame_index % len(self.frames))]
 		self.image = pygame.transform.flip(self.image, True, False) if self.direction < 0 else self.image
 
-		# move 
+		# move and follow player
+		player_distance = self.rect.centerx - self.player.rect.centerx
+		if abs(player_distance) < self.alert_distance:
+			self.direction = 1 if player_distance < 0 else -1
+
 		self.rect.x += self.direction * self.speed * dt
 
-		# reverse direction 
+		# reverse direction
 		floor_rect_right = pygame.FRect(self.rect.bottomright, (1,1))
 		floor_rect_left = pygame.FRect(self.rect.bottomleft, (-1,1))
 		wall_rect = pygame.FRect(self.rect.topleft + vector(-1,0), (self.rect.width + 2, 1))
@@ -52,7 +58,7 @@ class Shell(pygame.sprite.Sprite):
 				self.frames[key] = [pygame.transform.flip(surf, True, False) for surf in surfs]
 			self.bullet_direction = -1
 		else:
-			self.frames = frames 
+			self.frames = frames
 			self.bullet_direction = 1
 
 		self.frame_index = 0
@@ -81,15 +87,15 @@ class Shell(pygame.sprite.Sprite):
 		self.shoot_timer.update()
 		self.state_management()
 
-		# animation / attack 
+		# animation / attack
 		self.frame_index += ANIMATION_SPEED * dt
 		if self.frame_index < len(self.frames[self.state]):
 			self.image = self.frames[self.state][int(self.frame_index)]
 
-			# fire 
+			# fire
 			if self.state == 'fire' and int(self.frame_index) == 3 and not self.has_fired:
 				self.create_pearl(self.rect.center, self.bullet_direction)
-				self.has_fired = True 
+				self.has_fired = True
 
 		else:
 			self.frame_index = 0
@@ -98,7 +104,7 @@ class Shell(pygame.sprite.Sprite):
 				self.has_fired = False
 
 class Pearl(pygame.sprite.Sprite):
-	def __init__(self, pos, groups, surf, direction, speed):
+	def __init__(self, pos, groups, surf, direction, speed, player):
 		self.pearl = True
 		super().__init__(groups)
 		self.image = surf
@@ -108,10 +114,11 @@ class Pearl(pygame.sprite.Sprite):
 		self.z = Z_LAYERS['main']
 		self.timers = {'lifetime': Timer(5000), 'reverse': Timer(250)}
 		self.timers['lifetime'].activate()
+		self.player = player
 
 	def reverse(self):
 		if not self.timers['reverse'].active:
-			self.direction *= -1 
+			self.direction *= -1
 			self.timers['reverse'].activate()
 
 	def update(self, dt):
@@ -119,5 +126,11 @@ class Pearl(pygame.sprite.Sprite):
 			timer.update()
 
 		self.rect.x += self.direction * self.speed * dt
+
+		# Check for collision with player
+		if self.rect.colliderect(self.player.rect):
+			self.player.health -= 1
+			self.kill()
+
 		if not self.timers['lifetime'].active:
 			self.kill()
