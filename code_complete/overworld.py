@@ -54,6 +54,25 @@ class Overworld:
 			if obj.name == 'Node' and obj.properties['stage'] == self.data.current_level:
 				self.icon = Icon((obj.x + TILE_SIZE / 2, obj.y + TILE_SIZE / 2), self.all_sprites, overworld_frames['icon'])
 
+			# nodes & player
+			for obj in tmx_map.get_layer_by_name('Nodes'):
+				# player
+				if obj.name == 'Node' and obj.properties['stage'] == self.data.current_level:
+					self.icon = Icon((obj.x + TILE_SIZE / 2, obj.y + TILE_SIZE / 2), self.all_sprites,
+									 overworld_frames['icon'])
+
+				# nodes
+				if obj.name == 'Node':
+					available_paths = {k: v for k, v in obj.properties.items() if k in ('left', 'right', 'up', 'down')}
+					Node(
+						pos=(obj.x, obj.y),
+						surf=overworld_frames['path']['node'],
+						groups=(self.all_sprites, self.node_sprites),
+						level=obj.properties['stage'],
+						data=self.data,
+						paths=available_paths,
+						alert_distance=200)  # Aggiungi alert_distance qui
+
 			# nodes 
 			if obj.name == 'Node':
 				available_paths = {k:v for k,v in obj.properties.items() if k in ('left', 'right', 'up', 'down')}
@@ -66,8 +85,7 @@ class Overworld:
 					paths = available_paths)
 
 	def create_path_sprites(self):
-
-		# get tiles from path 
+		# get tiles from path
 		nodes = {node.level: vector(node.grid_pos) for node in self.node_sprites}
 		path_tiles = {}
 
@@ -80,19 +98,51 @@ class Overworld:
 				if index < len(path) - 1:
 					start, end = vector(points), vector(path[index + 1])
 					path_dir = (end - start) / TILE_SIZE
-					start_tile = vector(int(start[0]/ TILE_SIZE), int(start[1]/ TILE_SIZE))
+					start_tile = vector(int(start[0] / TILE_SIZE), int(start[1] / TILE_SIZE))
 
 					if path_dir.y:
 						dir_y = 1 if path_dir.y > 0 else -1
 						for y in range(dir_y, int(path_dir.y) + dir_y, dir_y):
-							path_tiles[path_id].append(start_tile + vector(0,y))
+							path_tiles[path_id].append(start_tile + vector(0, y))
 
 					if path_dir.x:
 						dir_x = 1 if path_dir.x > 0 else -1
 						for x in range(dir_x, int(path_dir.x) + dir_x, dir_x):
-							path_tiles[path_id].append(start_tile + vector(x,0))
+							path_tiles[path_id].append(start_tile + vector(x, 0))
 
 			path_tiles[path_id].append(end_node)
+
+		# create sprites
+		for key, path in path_tiles.items():
+			for index, tile in enumerate(path):
+				if index > 0 and index < len(path) - 1:
+					prev_tile = path[index - 1] - tile
+					next_tile = path[index + 1] - tile
+
+					if prev_tile.x == next_tile.x:
+						surf = self.path_frames['vertical']
+					elif prev_tile.y == next_tile.y:
+						surf = self.path_frames['horizontal']
+					else:
+						if prev_tile.x == -1 and next_tile.y == -1 or prev_tile.y == -1 and next_tile.x == -1:
+							surf = self.path_frames['tl']
+						elif prev_tile.x == 1 and next_tile.y == 1 or prev_tile.y == 1 and next_tile.x == 1:
+							surf = self.path_frames['br']
+						elif prev_tile.x == -1 and next_tile.y == 1 or prev_tile.y == 1 and next_tile.x == -1:
+							surf = self.path_frames['bl']
+						elif prev_tile.x == 1 and next_tile.y == -1 or prev_tile.y == -1 and next_tile.x == 1:
+							surf = self.path_frames['tr']
+						else:
+							surf = self.path_frames['horizontal']
+
+					PathSprite(
+						pos=(tile.x * TILE_SIZE, tile.y * TILE_SIZE),
+						surf=surf,
+						groups=self.all_sprites,
+						level=key,
+						animated=True)  # Aggiungi animated=True qui
+
+					path_tiles[path_id].append(end_node)
 
 		# create sprites 
 		for key, path in path_tiles.items():
@@ -123,6 +173,26 @@ class Overworld:
 						groups = self.all_sprites, 
 						level = key)
 
+					class PathSprite(pygame.sprite.Sprite):
+						def __init__(self, pos, surf, groups, level, animated=False):
+							super().__init__(groups) //chiama padre
+							self.image = surf
+							self.rect = self.image.get_frect(topleft=pos)
+							self.z = Z_LAYERS['bg']
+							self.level = level
+							self.animated = animated
+							if self.animated:
+								self.frame_index = 0
+								self.frames = [surf]  # Aggiungi qui le frame dell'animazione
+								self.animation_speed = 0.15
+
+						def update(self, dt):
+							if self.animated:
+								self.frame_index += self.animation_speed * dt
+								if self.frame_index >= len(self.frames):
+									self.frame_index = 0
+								self.image = self.frames[int(self.frame_index)]
+
 	def input(self):
 		keys = pygame.key.get_pressed()
 		if self.current_node and not self.icon.path:
@@ -134,6 +204,14 @@ class Overworld:
 				self.move('right')
 			if keys[pygame.K_UP] and self.current_node.can_move('up'):
 				self.move('up')
+			if keys[pygame.K_DOWN] and keys[pygame.K_LEFT] and self.current_node.can_move('down-left'):
+				self.move('down-left')
+			if keys[pygame.K_DOWN] and keys[pygame.K_RIGHT] and self.current_node.can_move('down-right'):
+				self.move('down-right')
+			if keys[pygame.K_UP] and keys[pygame.K_LEFT] and self.current_node.can_move('up-left'):
+				self.move('up-left')
+			if keys[pygame.K_UP] and keys[pygame.K_RIGHT] and self.current_node.can_move('up-right'):
+				self.move('up-right')
 			if keys[pygame.K_RETURN]:
 				self.data.current_level = self.current_node.level
 				self.switch_stage('level')
