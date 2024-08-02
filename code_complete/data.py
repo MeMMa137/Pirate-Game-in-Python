@@ -76,3 +76,34 @@ class Data:
 			self.ui.show_attack(self.weapon, damage)
 		else:
 			self.ui.show_no_weapon()
+
+	def add_coins(self, amount):
+		self.coins += amount
+		self.ui.show_coins(self.coins)
+
+	def remove_coins(self, amount):
+		self.coins -= amount
+		self.ui.show_coins(self.coins)
+
+	@property
+	def unlocked_level(self):
+		return self._unlocked_level
+
+	@unlocked_level.setter
+	def unlocked_level(self, value):
+		self._unlocked_level = value
+		self.ui.show_unlocked_level(self._unlocked_level)
+
+	def gain_experience(self, amount):
+		self.experience += amount
+		self.ui.show_experience(self.experience)
+
+	def lose_health(self, amount):
+		self.health -= amount
+		self.ui.create_hearts(self.health)
+		if self.health <= 0:
+			self.ui.show_game_over()
+
+	def heal(self, amount):
+		self.health += amount
+		self.ui.create_hearts(self.health)

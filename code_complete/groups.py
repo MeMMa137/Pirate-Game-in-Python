@@ -9,6 +9,8 @@ class WorldSprites(pygame.sprite.Group):
 		self.display_surface = pygame.display.get_surface()
 		self.data = data
 		self.offset = vector()
+		self.rain_timer = Timer(2000, self.create_rain, True)
+		self.rain_timer.activate()
 
 	def draw(self, target_pos):
 		self.offset.x = -(target_pos[0] - WINDOW_WIDTH / 2)
@@ -30,6 +32,10 @@ class WorldSprites(pygame.sprite.Group):
 				else:
 					self.display_surface.blit(sprite.image, sprite.rect.topleft + self.offset)
 
+		def create_rain(self):
+   		 for _ in range(10):
+      		  pos = (randint(0, self.width), randint(self.borders['top'], self.horizon_line))
+       		 Rain(pos, self)
 		
 
 class AllSprites(pygame.sprite.Group):
@@ -69,6 +75,8 @@ class AllSprites(pygame.sprite.Group):
 				pos = (randint(0,self.width), randint(self.borders['top'], self.horizon_line))
 				surf = choice(self.small_clouds)
 				Cloud(pos, surf, self)
+
+
 
 	def camera_constraint(self):
 		self.offset.x = self.offset.x if self.offset.x < self.borders['left'] else self.borders['left']
@@ -113,3 +121,22 @@ class AllSprites(pygame.sprite.Group):
 		for sprite in sorted(self, key = lambda sprite: sprite.z):
 			offset_pos = sprite.rect.topleft + self.offset
 			self.display_surface.blit(sprite.image, offset_pos)
+
+
+class Rain(pygame.sprite.Sprite):
+    def __init__(self, pos, groups):
+        super().__init__(groups)
+        self.image = pygame.Surface((2, 10))
+        self.image.fill('blue')
+        self.rect = self.image.get_frect(topleft=pos)
+        self.speed = 300  # Velocità della pioggia
+
+    def update(self, dt):
+        self.rect.y += self.speed * dt
+        if self.rect.top
+
+	#gruppo
+		def create_rain(self):
+			for _ in range(10):
+				pos = (randint(0, self.width), randint(self.borders['top'], self.horizon_line))
+				Rain(pos, self)
